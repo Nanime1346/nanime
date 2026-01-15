@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NAnime - News, Schedule & Community</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#ff0033', // Classic anime red
+            dark: '#000000',   // Pure black
+            offwhite: '#f0f0f0',
+            lightgray: '#bbbbbb'
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Favicon: Red "N" on black -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000000'/><text y='0.9em' font-size='90' fill='%23ff0033'>N</text></svg>">
+</head>
+<body class="bg-dark text-offwhite min-h-screen font-sans">
+  <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <!-- Header -->
+    <header class="text-center mb-12">
+      <h1 class="text-5xl font-bold tracking-tight">
+        <span class="text-primary">N</span>Anime
+      </h1>
+      <p class="text-lightgray mt-3 text-lg">Your Daily Source for Anime News & Releases</p>
+    </header>
+
+    <!-- Today's Lineup -->
+    <section class="mb-12">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="text-primary text-xl">📺</span>
+        <h2 class="text-2xl font-bold">Today's Anime Lineup</h2>
+      </div>
+      <div id="schedule" class="space-y-4">
+        <p class="text-gray-400">Loading schedule...</p>
+      </div>
+      <p class="text-sm text-gray-500 mt-4">
+        All episodes stream legally on official platforms.
+      </p>
+    </section>
+
+    <!-- Latest News -->
+    <section class="mb-12">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="text-primary text-xl">📰</span>
+        <h2 class="text-2xl font-bold">Latest News</h2>
+      </div>
+      <div id="news" class="space-y-5">
+        <p class="text-gray-400">Fetching updates...</p>
+      </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="text-center py-8 bg-black/30 rounded-xl border border-gray-900">
+      <h3 class="text-xl font-semibold mb-3">Support Official Anime!</h3>
+      <p class="text-gray-300 mb-4">We only link to legal streaming services like Crunchyroll, HIDIVE, and Netflix.</p>
+      <a href="https://www.crunchyroll.com" target="_blank"
+         class="inline-block bg-primary text-white font-bold px-6 py-2 rounded-full hover:bg-red-700 transition shadow-md">
+        Watch Legally on Crunchyroll
+      </a>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center text-gray-600 text-sm pt-10 mt-8 border-t border-gray-900">
+      <p>© 2026 NAnime • 100% Legal Fan Hub</p>
+      <p class="mt-1">Not affiliated with any anime studio or distributor.</p>
+    </footer>
+  </div>
+
+  <script>
+    async function loadSchedule() {
+      const now = Math.floor(Date.now() / 1000);
+      const query = `
+        query {
+          Page(page: 1, perPage: 6) {
+            airingSchedules(airingAt_greater: ${now}, sort: TIME) {
+              timeUntilAiring
+              episode
+              media { title { romaji } }
+            }
+          }
+        }
+      `;
+      try {
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query })
+        });
+        const data = await res.json();
+        const schedules = data.data.Page.airingSchedules;
+        const container = document.getElementById('schedule');
+        
+        if (!schedules || schedules.length === 0) {
+          container.innerHTML = '<p class="text-yellow-400 text-center py-4">No new episodes scheduled in the next 24 hours.</p>';
+          return;
+        }
+
+        container.innerHTML = schedules.map(s => {
+          const hours = Math.floor(s.timeUntilAiring / 3600);
+          const mins = Math.floor((s.timeUntilAiring % 3600) / 60);
+          return `
+            <div class="bg-black/40 p-4 rounded-lg border border-gray-900 hover:border-primary transition">
+              <div class="font-bold text-lg">${s.media.title.romaji}</div>
+              <div class="text-gray-300 mt-1">Episode ${s.episode} • Airing in ~${hours}h ${mins}m</div>
+              <a href="https://www.crunchyroll.com" target="_blank" 
+                 class="text-primary hover:text-red-400 text-sm mt-2 inline-block font-medium">
+                Watch Officially →
+              </a>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        document.getElementById('schedule').innerHTML = '<p class="text-red-400 text-center">Failed to load schedule.</p>';
+      }
+    }
+
+    function loadNews() {
+      const newsItems = [
+        {
+          title: "Chainsaw Man Season 2 Release Date Confirmed!",
+          summary: "MAPPA announces July 2026 premiere. Denji returns with new devil powers.",
+          source: "https://www.crunchyroll.com"
+        },
+        {
+          title: "Oshi no Ko Season 2 Breaks Streaming Records",
+          summary: "The idol drama becomes the most-watched anime of Spring 2026 on HIDIVE.",
+          source: "https://www.animenewsnetwork.com"
+        },
+        {
+          title: "New Studio Trigger Original Anime Revealed",
+          summary: "'Cyberpunk Requiem' blends mecha action with synthwave aesthetics. Coming Fall 2026.",
+          source: "https://www.animenewsnetwork.com"
+        }
+      ];
+      
+      document.getElementById('news').innerHTML = newsItems.map(item => `
+        <div class="bg-black/40 p-5 rounded-xl border border-gray-900">
+          <h3 class="font-bold text-lg text-primary">${item.title}</h3>
+          <p class="text-gray-300 mt-2">${item.summary}</p>
+          <a href="${item.source}" target="_blank" class="text-primary hover:text-red-400 text-sm mt-3 inline-block font-medium">
+            Read Full Story →
+          </a>
+        </div>
+      `).join('');
+    }
+
+    loadSchedule();
+    loadNews();
+  </script>
+</body>
+</html>
