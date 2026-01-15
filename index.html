@@ -91,7 +91,7 @@
     <div class="flex flex-col lg:flex-row gap-8">
       <!-- Main Content -->
       <div class="main-content space-y-12">
-        <!-- 📺 ANIME -->
+        <!-- 📺 ANIME SECTION (Separate, paginated) -->
         <section>
           <div class="flex items-center gap-2 mb-4">
             <span class="text-primary text-xl">📺</span>
@@ -103,7 +103,7 @@
           <button id="load-more-anime" class="mt-4 text-primary hover:underline">Load More Anime</button>
         </section>
 
-        <!-- 📖 MANGA -->
+        <!-- 📖 MANGA SECTION (Separate, paginated) -->
         <section>
           <div class="flex items-center gap-2 mb-4">
             <span class="text-primary text-xl">📖</span>
@@ -269,7 +269,7 @@
     let animePage = 1;
     let mangaPage = 1;
 
-    // --- LOAD ANIME (with pagination) ---
+    // --- LOAD ANIME (separate, paginated) ---
     async function loadAnime(append = false) {
       const query = `
         query ($page: Int) {
@@ -292,13 +292,13 @@
         const data = await res.json();
         const animeList = data.data.Page.media || [];
         renderAnime(animeList, append);
-        if (!append) animePage = 2; // next page
+        if (!append) animePage = 2;
       } catch (e) {
         document.getElementById('anime-list').innerHTML = '<p class="text-red-400">Failed to load anime.</p>';
       }
     }
 
-    // --- LOAD MANGA (with pagination) ---
+    // --- LOAD MANGA (separate, paginated) ---
     async function loadManga(append = false) {
       const query = `
         query ($page: Int) {
@@ -327,16 +327,11 @@
       }
     }
 
-    // --- RENDER ANIME ---
+    // --- RENDER ANIME (separate block) ---
     function renderAnime(items, append = false) {
       const container = document.getElementById('anime-list');
       if (!append) container.innerHTML = '';
       
-      if (items.length === 0 && !append) {
-        container.innerHTML = '<p class="text-yellow-400">No anime found.</p>';
-        return;
-      }
-
       const html = items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
         return `
@@ -359,16 +354,11 @@
       updateBookmarkButtons();
     }
 
-    // --- RENDER MANGA ---
+    // --- RENDER MANGA (separate block) ---
     function renderManga(items, append = false) {
       const container = document.getElementById('manga-list');
       if (!append) container.innerHTML = '';
       
-      if (items.length === 0 && !append) {
-        container.innerHTML = '<p class="text-yellow-400">No manga found.</p>';
-        return;
-      }
-
       const html = items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
         return `
@@ -401,7 +391,7 @@
       });
     }
 
-    // --- LOAD MOVIES ---
+    // --- LOAD MOVIES (for sidebar) ---
     async function loadMovies() {
       const query = `
         query {
