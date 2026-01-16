@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>NAnime - Anime, Manga & Movies</title>
-  <meta name="description" content="Filter by genre, year, and type. No Hentai.">
+  <meta name="description" content="Discover anime, manga, and movies. Filter by genre, year, and type. No Hentai.">
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -102,21 +102,15 @@
 
       <!-- 📅 YEAR + TYPE + SORT FILTERS -->
       <section class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <!-- Year -->
         <select id="filter-year" class="bg-gray-800 text-white rounded px-3 py-2">
           <option value="">All Years</option>
-          <!-- Years will be populated dynamically -->
         </select>
-        
-        <!-- Type -->
         <select id="filter-type" class="bg-gray-800 text-white rounded px-3 py-2">
           <option value="all">All Types</option>
           <option value="ANIME">Anime</option>
           <option value="MANGA">Manga</option>
           <option value="MOVIE">Movies</option>
         </select>
-        
-        <!-- Sort -->
         <select id="sort-by" class="bg-gray-800 text-white rounded px-3 py-2">
           <option value="date">Recently Added</option>
           <option value="title">Title (A-Z)</option>
@@ -335,11 +329,17 @@
           .filter(g => g && g.toLowerCase() !== 'hentai')
           .sort();
         renderGenreFilters();
-      } catch (e) {}
+      } catch (e) {
+        document.getElementById('genre-filters').innerHTML = '<span class="text-red-400">Failed to load genres.</span>';
+      }
     }
 
     function renderGenreFilters() {
       const container = document.getElementById('genre-filters');
+      if (allGenres.length === 0) {
+        container.innerHTML = '<span class="text-gray-500">No genres available.</span>';
+        return;
+      }
       container.innerHTML = allGenres.map(genre => `
         <span class="genre-tag" data-genre="${genre}">${genre}</span>
       `).join('');
@@ -360,7 +360,7 @@
       });
     }
 
-    // --- APPLY ALL FILTERS ---
+    // --- APPLY FILTERS ---
     function applyFilters() {
       selectedYear = document.getElementById('filter-year').value;
       if (currentView === 'anime') {
@@ -375,7 +375,6 @@
       }
     }
 
-    // Attach listeners
     document.getElementById('filter-type').addEventListener('change', renderMyListPreview);
     document.getElementById('filter-year').addEventListener('change', applyFilters);
     document.getElementById('sort-by').addEventListener('change', renderMyListPreview);
@@ -385,9 +384,10 @@
       currentView = tab;
       showMainView();
       
-      ['anime-section', 'manga-section', 'movies-section'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
-      });
+      document.getElementById('anime-section').classList.add('hidden');
+      document.getElementById('manga-section').classList.add('hidden');
+      document.getElementById('movies-section').classList.add('hidden');
+      
       document.getElementById(tab + '-section').classList.remove('hidden');
       
       ['anime', 'manga', 'movies'].forEach(t => {
@@ -419,7 +419,7 @@
 
     document.getElementById('back-button').addEventListener('click', showMainView);
 
-    // --- LOAD MEDIA WITH YEAR + GENRE FILTERS ---
+    // --- LOAD MEDIA ---
     async function loadAnime(append = false) {
       const variables = { page: animePage, type: 'ANIME' };
       if (selectedGenres.length > 0) variables.genres = selectedGenres;
@@ -427,14 +427,12 @@
         variables.startDate = { year: parseInt(selectedYear) };
         variables.endDate = { year: parseInt(selectedYear) };
       }
-      if (currentView === 'movies') variables.format = 'MOVIE';
 
       const query = `
-        query ($page: Int, $genres: [String], $startDate: FuzzyDateInt, $endDate: FuzzyDateInt, $type: MediaType, $format: MediaFormat) {
+        query ($page: Int, $genres: [String], $startDate: FuzzyDateInt, $endDate: FuzzyDateInt, $type: MediaType) {
           Page(page: $page, perPage: 20) {
             media(
               type: $type,
-              ${currentView === 'movies' ? 'format: $format,' : ''}
               genres_in: $genres,
               startDate_greater: $startDate,
               endDate_lesser: $endDate,
@@ -459,7 +457,11 @@
         const data = await res.json();
         renderAnime(data.data.Page.media || [], append);
         if (!append) animePage = 2;
-      } catch (e) {}
+      } catch (e) {
+        if (!append) {
+          document.getElementById('anime-list').innerHTML = '<p class="text-red-400">Failed to load anime.</p>';
+        }
+      }
     }
 
     async function loadManga(append = false) {
@@ -499,7 +501,11 @@
         const data = await res.json();
         renderManga(data.data.Page.media || [], append);
         if (!append) mangaPage = 2;
-      } catch (e) {}
+      } catch (e) {
+        if (!append) {
+          document.getElementById('manga-list').innerHTML = '<p class="text-red-400">Failed to load manga.</p>';
+        }
+      }
     }
 
     async function loadMoviesMain(append = false) {
@@ -539,13 +545,21 @@
         const data = await res.json();
         renderMovies(data.data.Page.media || [], append);
         if (!append) moviesPage = 2;
-      } catch (e) {}
+      } catch (e) {
+        if (!append) {
+          document.getElementById('movies-list-main').innerHTML = '<p class="text-red-400">Failed to load movies.</p>';
+        }
+      }
     }
 
-    // --- RENDER FUNCTIONS ---
+    // --- RENDER ---
     function renderAnime(items, append = false) {
       const container = document.getElementById('anime-list');
       if (!append) container.innerHTML = '';
+      if (items.length === 0 && !append) {
+        container.innerHTML = '<p class="text-yellow-400">No anime found matching your filters.</p>';
+        return;
+      }
       container.innerHTML += items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
         const year = item.startDate?.year || '?';
@@ -567,6 +581,10 @@
     function renderManga(items, append = false) {
       const container = document.getElementById('manga-list');
       if (!append) container.innerHTML = '';
+      if (items.length === 0 && !append) {
+        container.innerHTML = '<p class="text-yellow-400">No manga found matching your filters.</p>';
+        return;
+      }
       container.innerHTML += items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
         const year = item.startDate?.year || '?';
@@ -588,6 +606,10 @@
     function renderMovies(items, append = false) {
       const container = document.getElementById('movies-list-main');
       if (!append) container.innerHTML = '';
+      if (items.length === 0 && !append) {
+        container.innerHTML = '<p class="text-yellow-400">No movies found matching your filters.</p>';
+        return;
+      }
       container.innerHTML += items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
         const year = item.startDate?.year || '?';
@@ -648,7 +670,33 @@
       } catch (e) {}
     }
 
-    // --- DETAIL PAGE (shows year in info) ---
+    // --- NEWS (FIXED) ---
+    async function loadRssNews() {
+      const feedUrl = 'https://www.crunchyroll.com/newsrss';
+      try {
+        const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=3`;
+        const response = await fetch(proxyUrl);
+        const data = await response.json();
+        if (data.status === 'ok' && data.items) {
+          document.getElementById('rss-news').innerHTML = data.items.slice(0, 3).map(item => `
+            <div class="bg-black/40 p-4 rounded-xl">
+              <a href="${item.link}" target="_blank" class="font-bold hover:text-primary">${item.title}</a>
+              <p class="text-gray-400 text-sm mt-1">${item.pubDate.split(' ')[0]}</p>
+            </div>
+          `).join('');
+        } else {
+          throw new Error('Invalid RSS data');
+        }
+      } catch (e) {
+        document.getElementById('rss-news').innerHTML = `
+          <div class="bg-black/40 p-4 rounded-xl">
+            <p class="text-yellow-400">News temporarily unavailable.</p>
+          </div>
+        `;
+      }
+    }
+
+    // --- DETAIL PAGE (same as before) ---
     async function showMediaDetail(type, id) {
       const query = `
         query ($id: Int, $type: MediaType) {
@@ -778,7 +826,7 @@
       document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
     }
 
-    // --- SEARCH (bypasses filters) ---
+    // --- SEARCH ---
     document.getElementById('search-input').addEventListener('input', async (e) => {
       const term = e.target.value.trim();
       if (term.length < 2) {
@@ -832,30 +880,14 @@
       moviesPage++;
     });
 
-    // --- LOAD NEWS ---
-    async function loadRssNews() {
-      const feeds = ['https://www.crunchyroll.com/newsrss'];
-      let items = [];
-      for (const url of feeds) {
-        try {
-          const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}&count=2`);
-          const data = await res.json();
-          if (data.status === 'ok') items.push(...data.items.slice(0,2));
-        } catch (e) {}
-      }
-      document.getElementById('rss-news').innerHTML = items.map(item => `
-        <div class="bg-black/40 p-4 rounded-xl"><h3 class="font-bold">${item.title}</h3></div>
-      `).join('');
-    }
-
-    // --- INIT ---
+    // --- INIT (FIXED ORDER) ---
     document.addEventListener('DOMContentLoaded', () => {
-      populateYearFilter(); // ✅ Adds years 1980–2026
+      populateYearFilter();
       renderMyListPreview();
-      loadGenres();
-      loadAnime();
+      loadGenres();       // Load genres first
+      loadAnime();        // ✅ Load anime immediately
       loadTrending();
-      loadRssNews();
+      loadRssNews();      // ✅ Load news immediately
     });
   </script>
 </body>
