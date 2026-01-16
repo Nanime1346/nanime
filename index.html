@@ -1,223 +1,869 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>NAnime - Anime, Manga & Movies</title>
-<meta name="description" content="Discover anime, manga, and movies. Filter by genre, year, and type. No Hentai.">
-
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  theme: {
-    extend: {
-      colors: {
-        primary: '#ff0033',
-        dark: '#000000',
-        offwhite: '#f0f0f0',
-        lightgray: '#bbbbbb'
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NAnime - Anime, Manga & Movies</title>
+  <meta name="description" content="Discover anime, manga, and movies. Filter by genre, year, and type. No Hentai.">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#ff0033',
+            dark: '#000000',
+            offwhite: '#f0f0f0',
+            lightgray: '#bbbbbb'
+          }
+        }
       }
     }
-  }
-}
-</script>
+  </script>
 
-<link rel="icon" href="image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000000'/><text y='0.9em' font-size='90' fill='%23ff0033'>N</text></svg>">
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3TSSLZCBF5"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-3TSSLZCBF5');
+  </script>
 
-<style>
-.bookmark-btn{background:none;border:none;color:#777;font-size:1.4rem;cursor:pointer;position:absolute;top:.5rem;right:.5rem}
-.bookmark-btn.active{color:gold}
-.media-item{position:relative}
-.genre-tag{background:#222;padding:.25rem .75rem;border-radius:999px;cursor:pointer}
-.genre-tag.selected{background:#ff0033;color:#fff}
-</style>
+  <!-- Favicon -->
+  <link rel="icon" href="image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000000'/><text y='0.9em' font-size='90' fill='%23ff0033'>N</text></svg>">
+  <style>
+    .bookmark-btn { background: none; border: none; color: #555; cursor: pointer; font-size: 1.4rem; position: absolute; top: 0.5rem; right: 0.5rem; }
+    .bookmark-btn.active { color: gold; }
+    .media-item { position: relative; }
+    @media (min-width: 1024px) {
+      .main-content { max-width: 65%; }
+      .sidebar { width: 33%; }
+    }
+    .genre-tag {
+      display: inline-block;
+      background: #222;
+      padding: 0.25rem 0.75rem;
+      margin: 0.25rem;
+      border-radius: 999px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .genre-tag:hover { background: #333; }
+    .genre-tag.selected { background: #ff0033; color: white; }
+  </style>
 </head>
+<body class="bg-dark text-offwhite min-h-screen font-sans">
+  <div id="app" class="container mx-auto px-4 py-8 max-w-7xl">
+    <!-- Main App Content -->
+    <div id="main-view">
+      <!-- Header -->
+      <header class="text-center mb-8">
+        <h1 class="text-5xl font-bold tracking-tight">
+          <span class="text-primary">N</span>Anime
+        </h1>
+        <p class="text-lightgray mt-3 text-lg">Anime • Manga • Movies</p>
+      </header>
 
-<body class="bg-dark text-offwhite min-h-screen">
+      <!-- 🔍 Search Bar -->
+      <section class="mb-6">
+        <div class="relative max-w-xl mx-auto lg:mx-0">
+          <input 
+            type="text" 
+            id="search-input" 
+            placeholder="Search anime, manga, or movies..." 
+            class="w-full bg-gray-900 border border-gray-700 text-white rounded-full py-3 px-5 pl-12 focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+          <span class="absolute left-4 top-3.5 text-gray-400">🔍</span>
+        </div>
+      </section>
 
-<div id="app" class="container mx-auto px-4 py-8 max-w-7xl">
+      <!-- 💖 My List -->
+      <section class="mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-yellow-400 text-xl">★</span>
+          <h2 class="text-lg font-bold">My List</h2>
+        </div>
+        <div id="mylist-preview" class="flex flex-wrap gap-2 text-sm">
+          <span class="text-gray-500">Click ★ to save.</span>
+        </div>
+      </section>
 
-<header class="text-center mb-8">
-<h1 class="text-5xl font-bold"><span class="text-primary">N</span>Anime</h1>
-<p class="text-lightgray mt-2">Anime • Manga • Movies</p>
-</header>
+      <!-- 🎭 MULTI-GENRE FILTER -->
+      <section class="mb-6">
+        <h3 class="text-lg font-bold mb-3">Filter by Genre (Select Multiple)</h3>
+        <div id="genre-filters" class="flex flex-wrap gap-2">
+          <span class="text-gray-500">Loading genres...</span>
+        </div>
+      </section>
 
-<input id="search-input" placeholder="Search..." class="w-full bg-gray-900 border border-gray-700 rounded-full py-3 px-5 mb-6">
+      <!-- 📅 YEAR + TYPE + SORT FILTERS -->
+      <section class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <select id="filter-year" class="bg-gray-800 text-white rounded px-3 py-2">
+          <option value="">All Years</option>
+        </select>
+        <select id="filter-type" class="bg-gray-800 text-white rounded px-3 py-2">
+          <option value="all">All Types</option>
+          <option value="ANIME">Anime</option>
+          <option value="MANGA">Manga</option>
+          <option value="MOVIE">Movies</option>
+        </select>
+        <select id="sort-by" class="bg-gray-800 text-white rounded px-3 py-2">
+          <option value="date">Recently Added</option>
+          <option value="title">Title (A-Z)</option>
+        </select>
+      </section>
 
-<div id="genre-filters" class="flex flex-wrap gap-2 mb-6"></div>
+      <!-- Tabs -->
+      <div class="flex flex-wrap justify-center gap-2 mb-4">
+        <button id="tab-anime" class="px-5 py-2.5 font-medium text-white bg-primary rounded-lg">📺 Anime</button>
+        <button id="tab-manga" class="px-5 py-2.5 font-medium text-gray-300 bg-gray-800 rounded-lg hover:bg-gray-700">📖 Manga</button>
+        <button id="tab-movies" class="px-5 py-2.5 font-medium text-gray-300 bg-gray-800 rounded-lg hover:bg-gray-700">🎬 Movies</button>
+      </div>
 
-<select id="filter-year" class="bg-gray-800 px-3 py-2 rounded mb-6">
-<option value="">All Years</option>
-</select>
+      <!-- Main Content -->
+      <div class="flex flex-col lg:flex-row gap-8">
+        <div class="main-content space-y-12">
+          <!-- ANIME SECTION -->
+          <section id="anime-section">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-primary text-xl">📺</span>
+              <h2 class="text-2xl font-bold">All Anime</h2>
+            </div>
+            <div id="anime-list" class="space-y-6">
+              <p class="text-gray-500">Loading anime...</p>
+            </div>
+            <button id="load-more-anime" class="mt-4 text-primary hover:underline">Load More Anime</button>
+          </section>
 
-<div class="flex gap-2 mb-6">
-<button id="tab-anime" class="bg-primary px-4 py-2 rounded">Anime</button>
-<button id="tab-manga" class="bg-gray-800 px-4 py-2 rounded">Manga</button>
-<button id="tab-movies" class="bg-gray-800 px-4 py-2 rounded">Movies</button>
-</div>
+          <!-- MANGA SECTION -->
+          <section id="manga-section" class="hidden">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-primary text-xl">📖</span>
+              <h2 class="text-2xl font-bold">All Manga</h2>
+            </div>
+            <div id="manga-list" class="space-y-6">
+              <p class="text-gray-500">Loading manga...</p>
+            </div>
+            <button id="load-more-manga" class="mt-4 text-primary hover:underline">Load More Manga</button>
+          </section>
 
-<section id="anime-section">
-<div id="anime-list"></div>
-<button id="load-more-anime" class="mt-4 text-primary">Load More</button>
-</section>
+          <!-- MOVIES SECTION -->
+          <section id="movies-section" class="hidden">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-primary text-xl">🎬</span>
+              <h2 class="text-2xl font-bold">All Movies</h2>
+            </div>
+            <div id="movies-list-main" class="space-y-6">
+              <p class="text-gray-500">Loading movies...</p>
+            </div>
+            <button id="load-more-movies" class="mt-4 text-primary hover:underline">Load More Movies</button>
+          </section>
 
-<section id="manga-section" class="hidden">
-<div id="manga-list"></div>
-<button id="load-more-manga" class="mt-4 text-primary">Load More</button>
-</section>
+          <!-- News -->
+          <section>
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-primary text-xl">📰</span>
+              <h2 class="text-2xl font-bold">Latest Anime News</h2>
+            </div>
+            <div id="rss-news" class="space-y-5">
+              <p class="text-gray-500">News from Crunchyroll</p>
+            </div>
+          </section>
+        </div>
 
-<section id="movies-section" class="hidden">
-<div id="movies-list-main"></div>
-<button id="load-more-movies" class="mt-4 text-primary">Load More</button>
-</section>
+        <!-- SIDEBAR -->
+        <div class="sidebar space-y-8">
+          <section>
+            <h3 class="text-xl font-bold mb-3 flex items-center gap-2">
+              <span class="text-yellow-400">🔥</span> Trending Now
+            </h3>
+            <div id="trending-list" class="space-y-3">
+              <p class="text-gray-500 text-sm">Loading trending...</p>
+            </div>
+          </section>
+        </div>
+      </div>
 
-</div>
+      <footer class="text-center text-gray-600 text-sm pt-10 mt-8 border-t border-gray-900">
+        <p>© 2026 NAnime • 100% Legal Fan Hub • No Hentai</p>
+      </footer>
+    </div>
 
-<script>
-/* ---------------- STATE ---------------- */
-let currentView='anime';
-let animePage=1,mangaPage=1,moviesPage=1;
-let selectedGenres=[],selectedYear='';
-const BOOKMARK_KEY='nanime-bookmarks';
+    <!-- DETAIL VIEW -->
+    <div id="detail-view" class="hidden">
+      <button id="back-button" class="mb-6 flex items-center text-primary hover:underline">
+        ← Back to List
+      </button>
+      <div id="detail-content" class="bg-black/40 p-6 rounded-xl border border-gray-800">
+        <p class="text-gray-500">Loading details...</p>
+      </div>
+      <div class="mt-6">
+        <button id="share-button" class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded flex items-center gap-2">
+          <span>🔗</span> Share
+        </button>
+      </div>
+    </div>
+  </div>
 
-/* ---------------- HELPERS ---------------- */
-function getBookmarks(){return JSON.parse(localStorage.getItem(BOOKMARK_KEY)||'[]')}
-function setBookmarks(b){localStorage.setItem(BOOKMARK_KEY,JSON.stringify(b))}
+  <!-- Web Share API -->
+  <script>
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'share-button') {
+        const title = document.querySelector('#detail-content h1')?.innerText || 'Check this out!';
+        const url = window.location.href;
+        if (navigator.share) {
+          navigator.share({ title, url }).catch(console.error);
+        } else {
+          navigator.clipboard.writeText(url).then(() => {
+            alert('Link copied to clipboard!');
+          });
+        }
+      }
+    });
+  </script>
 
-/* ---------------- YEAR ---------------- */
-(function(){
-const y=document.getElementById('filter-year');
-for(let i=new Date().getFullYear();i>=1980;i--){
-y.innerHTML+=`<option>${i}</option>`;
-}
-})();
+  <!-- Main Scripts -->
+  <script>
+    // --- STATE ---
+    let currentView = 'anime';
+    let animePage = 1, mangaPage = 1, moviesPage = 1;
+    let selectedGenres = [];
+    let selectedYear = '';
+    let allGenres = [];
 
-/* ---------------- GENRES ---------------- */
-async function loadGenres(){
-const q=`query{GenreCollection}`;
-const r=await fetch('https://graphql.anilist.co',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q})});
-const d=await r.json();
-document.getElementById('genre-filters').innerHTML=
-d.data.GenreCollection.filter(g=>g.toLowerCase()!=='hentai')
-.map(g=>`<span class="genre-tag" data-g="${g}">${g}</span>`).join('');
-document.querySelectorAll('.genre-tag').forEach(t=>{
-t.onclick=()=>{
-t.classList.toggle('selected');
-selectedGenres=[...document.querySelectorAll('.genre-tag.selected')].map(e=>e.dataset.g);
-applyFilters();
-};
-});
-}
+    // --- POPULATE YEAR DROPDOWN ---
+    function populateYearFilter() {
+      const select = document.getElementById('filter-year');
+      const currentYear = new Date().getFullYear();
+      for (let year = currentYear; year >= 1980; year--) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        select.appendChild(option);
+      }
+    }
 
-/* ---------------- TABS ---------------- */
-function setTab(t){
-currentView=t;
-['anime','manga','movies'].forEach(v=>{
-document.getElementById(v+'-section').classList.toggle('hidden',v!==t);
-});
-applyFilters();
-}
-tab-anime.onclick=()=>setTab('anime');
-tab-manga.onclick=()=>setTab('manga');
-tab-movies.onclick=()=>setTab('movies');
+    // --- BOOKMARKING ---
+    function getBookmarks() {
+      return JSON.parse(localStorage.getItem('nanimе-bookmarks') || '[]');
+    }
 
-/* ---------------- FILTERS ---------------- */
-function applyFilters(){
-selectedYear=document.getElementById('filter-year').value;
-animePage=mangaPage=moviesPage=1;
-if(currentView==='anime')loadAnime();
-if(currentView==='manga')loadManga();
-if(currentView==='movies')loadMovies();
-}
+    function toggleBookmark(media) {
+      let bookmarks = getBookmarks();
+      const id = media.id;
+      const exists = bookmarks.find(b => b.id === id);
+      if (exists) {
+        bookmarks = bookmarks.filter(b => b.id !== id);
+      } else {
+        bookmarks.push({ ...media, addedAt: Date.now() });
+      }
+      localStorage.setItem('nanimе-bookmarks', JSON.stringify(bookmarks));
+      renderMyListPreview();
+      updateBookmarkButtons();
+    }
 
-/* ---------------- FETCHERS ---------------- */
-async function fetchMedia(vars,query){
-const r=await fetch('https://graphql.anilist.co',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,variables:vars})});
-return (await r.json()).data.Page.media;
-}
+    function renderMyListPreview() {
+      const container = document.getElementById('mylist-preview');
+      let bookmarks = getBookmarks();
+      
+      const typeFilter = document.getElementById('filter-type').value;
+      const sortBy = document.getElementById('sort-by').value;
 
-function dateVars(v){
-if(selectedYear){
-v.startDate_greater=Number(selectedYear+'0000');
-v.endDate_lesser=Number(selectedYear+'1231');
-}
-}
+      if (typeFilter !== 'all') {
+        const typeMap = { ANIME: 'ANIME', MANGA: 'MANGA', MOVIE: 'ANIME' };
+        bookmarks = bookmarks.filter(b => b.type === typeMap[typeFilter]);
+      }
 
-/* ---------------- LOADERS ---------------- */
-async function loadAnime(append=false){
-let v={page:animePage,genres:selectedGenres};
-dateVars(v);
-const q=`query($page:Int,$genres:[String],$startDate_greater:Int,$endDate_lesser:Int){
-Page(page:$page,perPage:20){media(type:ANIME,genres_in:$genres,startDate_greater:$startDate_greater,endDate_lesser:$endDate_lesser){id title{romaji} coverImage{large} episodes startDate{year}}}}`;
-render('anime-list',await fetchMedia(v,q),append,'ANIME');
-animePage++;
-}
+      if (sortBy === 'title') {
+        bookmarks.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      } else {
+        bookmarks.sort((a, b) => b.addedAt - a.addedAt);
+      }
 
-async function loadManga(append=false){
-let v={page:mangaPage,genres:selectedGenres};
-dateVars(v);
-const q=`query($page:Int,$genres:[String],$startDate_greater:Int,$endDate_lesser:Int){
-Page(page:$page,perPage:20){media(type:MANGA,genres_in:$genres,startDate_greater:$startDate_greater,endDate_lesser:$endDate_lesser){id title{romaji} coverImage{large} chapters startDate{year}}}}`;
-render('manga-list',await fetchMedia(v,q),append,'MANGA');
-mangaPage++;
-}
+      if (bookmarks.length === 0) {
+        container.innerHTML = '<span class="text-gray-500">Click ★ to save.</span>';
+        return;
+      }
 
-async function loadMovies(append=false){
-let v={page:moviesPage,genres:selectedGenres};
-dateVars(v);
-const q=`query($page:Int,$genres:[String],$startDate_greater:Int,$endDate_lesser:Int){
-Page(page:$page,perPage:20){media(type:ANIME,format:MOVIE,genres_in:$genres,startDate_greater:$startDate_greater,endDate_lesser:$endDate_lesser){id title{romaji} coverImage{large} startDate{year}}}}`;
-render('movies-list-main',await fetchMedia(v,q),append,'MOVIE');
-moviesPage++;
-}
+      container.innerHTML = bookmarks.map(item => `
+        <span class="bg-gray-800 px-2 py-1 rounded text-xs flex items-center gap-1">
+          <span>${item.title || 'Untitled'}</span>
+          <button onclick="removeFromList(${item.id})" class="text-red-400 hover:text-red-200">×</button>
+        </span>
+      `).join('');
+    }
 
-/* ---------------- RENDER ---------------- */
-function render(id,items,append,type){
-const c=document.getElementById(id);
-if(!append)c.innerHTML='';
-items.forEach(i=>{
-c.innerHTML+=`
-<div class="media-item bg-black/40 p-4 rounded mb-3">
-<img src="${i.coverImage.large}" class="w-16 h-24 float-left mr-3 rounded">
-<b>${i.title.romaji}</b>
-<p class="text-sm text-gray-400">${i.startDate?.year||'?'}</p>
-<button class="bookmark-btn" data-id="${i.id}" data-title="${i.title.romaji}" data-type="${type}" onclick="bookmark(event,this)">☆</button>
-<div style="clear:both"></div>
-</div>`;
-});
-updateBookmarks();
-}
+    function removeFromList(id) {
+      let bookmarks = getBookmarks();
+      bookmarks = bookmarks.filter(b => b.id !== id);
+      localStorage.setItem('nanimе-bookmarks', JSON.stringify(bookmarks));
+      renderMyListPreview();
+      updateBookmarkButtons();
+    }
 
-function bookmark(e,b){
-e.stopPropagation();
-let list=getBookmarks();
-const id=Number(b.dataset.id);
-if(list.some(x=>x.id===id))list=list.filter(x=>x.id!==id);
-else list.push({id,title:b.dataset.title,type:b.dataset.type});
-setBookmarks(list);
-updateBookmarks();
-}
+    function updateBookmarkButtons() {
+      const bookmarks = getBookmarks();
+      document.querySelectorAll('.bookmark-btn').forEach(btn => {
+        const id = btn.getAttribute('data-id');
+        const isActive = bookmarks.some(b => b.id == id);
+        btn.classList.toggle('active', isActive);
+        btn.textContent = isActive ? '★' : '☆';
+      });
+    }
 
-function updateBookmarks(){
-document.querySelectorAll('.bookmark-btn').forEach(b=>{
-b.textContent=getBookmarks().some(x=>x.id==b.dataset.id)?'★':'☆';
-});
-}
+    // --- LOAD GENRES (NO HENTAI) ---
+    async function loadGenres() {
+      const query = `query { GenreCollection }`;
+      try {
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query })
+        });
+        const data = await res.json();
+        allGenres = (data.data.GenreCollection || [])
+          .filter(g => g && g.toLowerCase() !== 'hentai')
+          .sort();
+        renderGenreFilters();
+      } catch (e) {}
+    }
 
-/* ---------------- SEARCH ---------------- */
-search-input.oninput=async e=>{
-if(e.target.value.length<2){applyFilters();return;}
-const type=currentView==='manga'?'MANGA':'ANIME';
-const q=`query($s:String,$t:MediaType){Page(page:1,perPage:20){media(search:$s,type:$t){id title{romaji} coverImage{large}}}}`;
-const r=await fetch('https://graphql.anilist.co',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,variables:{s:e.target.value,t:type}})});
-const d=(await r.json()).data.Page.media;
-render(currentView+'-list',d,false,type);
-};
+    function renderGenreFilters() {
+      const container = document.getElementById('genre-filters');
+      container.innerHTML = allGenres.map(genre => `
+        <span class="genre-tag" data-genre="${genre}">${genre}</span>
+      `).join('');
+      
+      document.querySelectorAll('.genre-tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+          const genre = tag.dataset.genre;
+          const index = selectedGenres.indexOf(genre);
+          if (index > -1) {
+            selectedGenres.splice(index, 1);
+            tag.classList.remove('selected');
+          } else {
+            selectedGenres.push(genre);
+            tag.classList.add('selected');
+          }
+          applyFilters();
+        });
+      });
+    }
 
-/* ---------------- INIT ---------------- */
-loadGenres();
-loadAnime();
-</script>
+    // --- APPLY FILTERS ---
+    function applyFilters() {
+      selectedYear = document.getElementById('filter-year').value;
+      if (currentView === 'anime') {
+        animePage = 1;
+        loadAnime();
+      } else if (currentView === 'manga') {
+        mangaPage = 1;
+        loadManga();
+      } else {
+        moviesPage = 1;
+        loadMoviesMain();
+      }
+    }
 
+    document.getElementById('filter-type').addEventListener('change', renderMyListPreview);
+    document.getElementById('filter-year').addEventListener('change', applyFilters);
+    document.getElementById('sort-by').addEventListener('change', renderMyListPreview);
+
+    // --- TABS ---
+    function setTab(tab) {
+      currentView = tab;
+      showMainView();
+      
+      document.getElementById('anime-section').classList.add('hidden');
+      document.getElementById('manga-section').classList.add('hidden');
+      document.getElementById('movies-section').classList.add('hidden');
+      
+      document.getElementById(tab + '-section').classList.remove('hidden');
+      
+      ['anime', 'manga', 'movies'].forEach(t => {
+        const btn = document.getElementById('tab-' + t);
+        if (t === tab) {
+          btn.className = 'px-5 py-2.5 font-medium text-white bg-primary rounded-lg';
+        } else {
+          btn.className = 'px-5 py-2.5 font-medium text-gray-300 bg-gray-800 rounded-lg hover:bg-gray-700';
+        }
+      });
+      
+      applyFilters();
+    }
+
+    document.getElementById('tab-anime').addEventListener('click', () => setTab('anime'));
+    document.getElementById('tab-manga').addEventListener('click', () => setTab('manga'));
+    document.getElementById('tab-movies').addEventListener('click', () => setTab('movies'));
+
+    // --- VIEW SWITCHING ---
+    function showMainView() {
+      document.getElementById('main-view').classList.remove('hidden');
+      document.getElementById('detail-view').classList.add('hidden');
+    }
+
+    function showDetailView() {
+      document.getElementById('main-view').classList.add('hidden');
+      document.getElementById('detail-view').classList.remove('hidden');
+    }
+
+    document.getElementById('back-button').addEventListener('click', showMainView);
+
+    // --- LOAD MEDIA ---
+    async function loadAnime(append = false) {
+      const variables = { page: animePage, type: 'ANIME' };
+      if (selectedGenres.length > 0) variables.genres = selectedGenres;
+      if (selectedYear) {
+        variables.startDate = { year: parseInt(selectedYear) };
+        variables.endDate = { year: parseInt(selectedYear) };
+      }
+
+      const query = `
+        query ($page: Int, $genres: [String], $startDate: FuzzyDateInt, $endDate: FuzzyDateInt, $type: MediaType) {
+          Page(page: $page, perPage: 20) {
+            media(
+              type: $type,
+              genres_in: $genres,
+              startDate_greater: $startDate,
+              endDate_lesser: $endDate,
+              sort: POPULARITY_DESC
+            ) {
+              id
+              title { romaji }
+              coverImage { large }
+              episodes
+              startDate { year }
+            }
+          }
+        }
+      `;
+
+      try {
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables })
+        });
+        const data = await res.json();
+        renderAnime(data.data.Page.media || [], append);
+        if (!append) animePage = 2;
+      } catch (e) {
+        if (!append) {
+          document.getElementById('anime-list').innerHTML = '<p class="text-red-400">Failed to load anime.</p>';
+        }
+      }
+    }
+
+    async function loadManga(append = false) {
+      const variables = { page: mangaPage, type: 'MANGA' };
+      if (selectedGenres.length > 0) variables.genres = selectedGenres;
+      if (selectedYear) {
+        variables.startDate = { year: parseInt(selectedYear) };
+        variables.endDate = { year: parseInt(selectedYear) };
+      }
+
+      const query = `
+        query ($page: Int, $genres: [String], $startDate: FuzzyDateInt, $endDate: FuzzyDateInt) {
+          Page(page: $page, perPage: 20) {
+            media(
+              type: MANGA,
+              genres_in: $genres,
+              startDate_greater: $startDate,
+              endDate_lesser: $endDate,
+              sort: POPULARITY_DESC
+            ) {
+              id
+              title { romaji }
+              coverImage { large }
+              chapters
+              startDate { year }
+            }
+          }
+        }
+      `;
+
+      try {
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables })
+        });
+        const data = await res.json();
+        renderManga(data.data.Page.media || [], append);
+        if (!append) mangaPage = 2;
+      } catch (e) {
+        if (!append) {
+          document.getElementById('manga-list').innerHTML = '<p class="text-red-400">Failed to load manga.</p>';
+        }
+      }
+    }
+
+    async function loadMoviesMain(append = false) {
+      const variables = { page: moviesPage, type: 'ANIME', format: 'MOVIE' };
+      if (selectedGenres.length > 0) variables.genres = selectedGenres;
+      if (selectedYear) {
+        variables.startDate = { year: parseInt(selectedYear) };
+        variables.endDate = { year: parseInt(selectedYear) };
+      }
+
+      const query = `
+        query ($page: Int, $genres: [String], $startDate: FuzzyDateInt, $endDate: FuzzyDateInt) {
+          Page(page: $page, perPage: 20) {
+            media(
+              type: ANIME,
+              format: MOVIE,
+              genres_in: $genres,
+              startDate_greater: $startDate,
+              endDate_lesser: $endDate,
+              sort: POPULARITY_DESC
+            ) {
+              id
+              title { romaji }
+              coverImage { large }
+              startDate { year }
+            }
+          }
+        }
+      `;
+
+      try {
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables })
+        });
+        const data = await res.json();
+        renderMovies(data.data.Page.media || [], append);
+        if (!append) moviesPage = 2;
+      } catch (e) {
+        if (!append) {
+          document.getElementById('movies-list-main').innerHTML = '<p class="text-red-400">Failed to load movies.</p>';
+        }
+      }
+    }
+
+    // --- RENDER ---
+    function renderAnime(items, append = false) {
+      const container = document.getElementById('anime-list');
+      if (!append) container.innerHTML = '';
+      if (items.length === 0 && !append) {
+        container.innerHTML = '<p class="text-yellow-400">No anime found matching your filters.</p>';
+        return;
+      }
+      container.innerHTML += items.map(item => {
+        const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
+        const year = item.startDate?.year || '?';
+        return `
+          <div class="bg-black/40 p-4 rounded-xl border border-gray-900 hover:border-primary transition flex items-start gap-4 media-item cursor-pointer"
+               onclick="showMediaDetail('ANIME', ${item.id})">
+            <img src="${img}" alt="${item.title.romaji}" class="w-16 h-24 object-cover rounded-lg">
+            <div>
+              <div class="font-bold text-lg">${item.title.romaji}</div>
+              <div class="text-gray-300 text-sm">${item.episodes ? item.episodes + ' eps' : 'Unknown'} • ${year}</div>
+            </div>
+            <button class="bookmark-btn" data-id="${item.id}" onclick="toggleBookmarkLight(event, ${JSON.stringify({...item, type: 'ANIME'})})">☆</button>
+          </div>
+        `;
+      }).join('');
+      updateBookmarkButtons();
+    }
+
+    function renderManga(items, append = false) {
+      const container = document.getElementById('manga-list');
+      if (!append) container.innerHTML = '';
+      if (items.length === 0 && !append) {
+        container.innerHTML = '<p class="text-yellow-400">No manga found matching your filters.</p>';
+        return;
+      }
+      container.innerHTML += items.map(item => {
+        const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
+        const year = item.startDate?.year || '?';
+        return `
+          <div class="bg-black/40 p-4 rounded-xl border border-gray-900 hover:border-primary transition flex items-start gap-4 media-item cursor-pointer"
+               onclick="showMediaDetail('MANGA', ${item.id})">
+            <img src="${img}" alt="${item.title.romaji}" class="w-16 h-24 object-cover rounded-lg">
+            <div>
+              <div class="font-bold text-lg">${item.title.romaji}</div>
+              <div class="text-gray-300 text-sm">${item.chapters ? item.chapters + ' chs' : 'Unknown'} • ${year}</div>
+            </div>
+            <button class="bookmark-btn" data-id="${item.id}" onclick="toggleBookmarkLight(event, ${JSON.stringify({...item, type: 'MANGA'})})">☆</button>
+          </div>
+        `;
+      }).join('');
+      updateBookmarkButtons();
+    }
+
+    function renderMovies(items, append = false) {
+      const container = document.getElementById('movies-list-main');
+      if (!append) container.innerHTML = '';
+      if (items.length === 0 && !append) {
+        container.innerHTML = '<p class="text-yellow-400">No movies found matching your filters.</p>';
+        return;
+      }
+      container.innerHTML += items.map(item => {
+        const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
+        const year = item.startDate?.year || '?';
+        return `
+          <div class="bg-black/40 p-4 rounded-xl border border-gray-900 hover:border-primary transition flex items-start gap-4 media-item cursor-pointer"
+               onclick="showMediaDetail('ANIME', ${item.id})">
+            <img src="${img}" alt="${item.title.romaji}" class="w-16 h-24 object-cover rounded-lg">
+            <div>
+              <div class="font-bold text-lg">${item.title.romaji}</div>
+              <div class="text-gray-300 text-sm">Movie • ${year}</div>
+            </div>
+            <button class="bookmark-btn" data-id="${item.id}" onclick="toggleBookmarkLight(event, ${JSON.stringify({...item, type: 'ANIME'})})">☆</button>
+          </div>
+        `;
+      }).join('');
+      updateBookmarkButtons();
+    }
+
+    function toggleBookmarkLight(event, media) {
+      event.stopPropagation();
+      toggleBookmark({
+        id: media.id,
+        title: media.title.romaji,
+        coverImage: media.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?',
+        type: media.type
+      });
+    }
+
+    // --- TRENDING ---
+    async function loadTrending() {
+      const query = `
+        query {
+          Page(page: 1, perPage: 5) {
+            media(sort: TRENDING_DESC) {
+              id
+              title { romaji }
+              type
+              coverImage { medium }
+            }
+          }
+        }
+      `;
+      try {
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query })
+        });
+        const data = await res.json();
+        const items = data.data.Page.media || [];
+        document.getElementById('trending-list').innerHTML = items.map(item => `
+          <div class="cursor-pointer hover:text-primary" onclick="showMediaDetail('${item.type}', ${item.id})">
+            <img src="${item.coverImage.medium}" alt="${item.title.romaji}" class="w-12 h-16 object-cover rounded float-left mr-3">
+            <div class="text-sm leading-tight">${item.title.romaji}</div>
+            <div style="clear:both"></div>
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    // --- NEWS (SIMPLIFIED) ---
+    function loadRssNews() {
+      document.getElementById('rss-news').innerHTML = `
+        <div class="bg-black/40 p-4 rounded-xl">
+          <a href="https://www.crunchyroll.com" target="_blank" class="font-bold hover:text-primary">
+            View Latest News on Crunchyroll →
+          </a>
+        </div>
+      `;
+    }
+
+    // --- DETAIL PAGE ---
+    async function showMediaDetail(type, id) {
+      const query = `
+        query ($id: Int, $type: MediaType) {
+          Media(id: $id, type: $type) {
+            id
+            title { romaji english }
+            coverImage { large }
+            description(asHtml: false)
+            status
+            episodes
+            chapters
+            volumes
+            genres
+            averageScore
+            startDate { year }
+            siteUrl
+            relations {
+              edges {
+                relationType(version: 2)
+                node {
+                  id
+                  title { romaji }
+                  type
+                  coverImage { medium }
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      try {
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables: { id: parseInt(id), type } })
+        });
+        const data = await res.json();
+        const media = data.data.Media;
+        if (!media) throw new Error('Not found');
+
+        const cleanGenres = (media.genres || []).filter(g => g.toLowerCase() !== 'hentai');
+        const year = media.startDate?.year || 'Unknown';
+
+        let relatedHtml = '';
+        if (media.relations && media.relations.edges.length > 0) {
+          const filteredEdges = media.relations.edges.filter(edge => edge.node && edge.node.title && edge.node.coverImage).slice(0, 6);
+          if (filteredEdges.length > 0) {
+            relatedHtml = `
+              <div class="mt-6">
+                <h3 class="text-xl font-bold mb-3">Related</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  ${filteredEdges.map(edge => `
+                    <div class="cursor-pointer" onclick="showMediaDetail('${edge.node.type}', ${edge.node.id})">
+                      <img src="${edge.node.coverImage.medium}" class="w-full h-24 object-cover rounded">
+                      <p class="text-xs mt-1">${edge.relationType.replace(/_/g, ' ')}</p>
+                      <p class="text-sm">${edge.node.title.romaji}</p>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `;
+          }
+        }
+
+        const desc = media.description ? media.description.replace(/<[^>]*>/g, '').substring(0, 800) + '...' : 'No description available.';
+        const statusMap = { FINISHED: 'Finished', RELEASING: 'Ongoing', NOT_YET_RELEASED: 'Upcoming', CANCELLED: 'Cancelled' };
+        const status = statusMap[media.status] || media.status;
+        const title = media.title.english || media.title.romaji;
+
+        document.getElementById('detail-content').innerHTML = `
+          <div class="flex flex-col md:flex-row gap-6">
+            <div>
+              <img src="${media.coverImage.large}" alt="${title}" class="w-full md:w-64 h-80 object-cover rounded-lg">
+            </div>
+            <div class="flex-1">
+              <h1 class="text-3xl font-bold">${title}</h1>
+              <p class="text-primary mt-1">${type === 'ANIME' ? 'Anime' : 'Manga'} • ${status} • ${year}</p>
+              
+              <div class="mt-4 text-gray-300">${desc}</div>
+              
+              <div class="mt-4 text-sm grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div><span class="text-gray-400">Genres:</span> ${cleanGenres.join(', ') || 'None'}</div>
+                <div><span class="text-gray-400">Score:</span> ${media.averageScore ? media.averageScore + '/100' : 'N/A'}</div>
+                ${type === 'ANIME' ? 
+                  `<div><span class="text-gray-400">Episodes:</span> ${media.episodes || 'Unknown'}</div>` : 
+                  `<div><span class="text-gray-400">Chapters:</span> ${media.chapters || 'Unknown'} (Vol. ${media.volumes || '?'})</div>`
+                }
+              </div>
+
+              <div class="mt-6 flex flex-wrap gap-3">
+                <button onclick="toggleBookmarkFromDetail(${JSON.stringify({
+                  id: media.id,
+                  title: title,
+                  coverImage: media.coverImage.large,
+                  type: type
+                })})" class="flex items-center gap-1 bg-gray-800 px-3 py-1 rounded">
+                  <span id="detail-bookmark-icon">☆</span> Bookmark
+                </button>
+                <a href="${media.siteUrl}" target="_blank" class="bg-primary text-white px-4 py-2 rounded hover:bg-red-700">
+                  View on AniList →
+                </a>
+              </div>
+
+              ${relatedHtml}
+            </div>
+          </div>
+        `;
+
+        const isBookmarked = getBookmarks().some(b => b.id == media.id);
+        document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
+
+        showDetailView();
+      } catch (error) {
+        document.getElementById('detail-content').innerHTML = '<p class="text-red-400">Failed to load details.</p>';
+        showDetailView();
+      }
+    }
+
+    function toggleBookmarkFromDetail(media) {
+      toggleBookmark(media);
+      const isBookmarked = getBookmarks().some(b => b.id == media.id);
+      document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
+    }
+
+    // --- SEARCH ---
+    document.getElementById('search-input').addEventListener('input', async (e) => {
+      const term = e.target.value.trim();
+      if (term.length < 2) {
+        applyFilters();
+        return;
+      }
+      let type = 'ANIME';
+      if (currentView === 'manga') type = 'MANGA';
+      const query = `
+        query ($search: String, $type: MediaType) {
+          Page(page: 1, perPage: 20) {
+            media(type: $type, search: $search) {
+              id
+              title { romaji }
+              coverImage { large }
+              ${currentView === 'anime' || currentView === 'movies' ? 'episodes' : 'chapters'}
+            }
+          }
+        }
+      `;
+      try {
+        const res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables: { search: term, type } })
+        });
+        const data = await res.json();
+        if (currentView === 'anime') {
+          renderAnime(data.data.Page.media || [], false);
+        } else if (currentView === 'manga') {
+          renderManga(data.data.Page.media || [], false);
+        } else {
+          renderMovies(data.data.Page.media || [], false);
+        }
+      } catch (e) {}
+    });
+
+    // --- LOAD MORE ---
+    document.getElementById('load-more-anime').addEventListener('click', () => {
+      loadAnime(true);
+      animePage++;
+    });
+
+    document.getElementById('load-more-manga').addEventListener('click', () => {
+      loadManga(true);
+      mangaPage++;
+    });
+
+    document.getElementById('load-more-movies').addEventListener('click', () => {
+      loadMoviesMain(true);
+      moviesPage++;
+    });
+
+    // --- INIT ---
+    document.addEventListener('DOMContentLoaded', () => {
+      populateYearFilter();
+      renderMyListPreview();
+      loadGenres();
+      loadAnime();        // ✅ Loads anime on home page
+      loadTrending();
+      loadRssNews();      // ✅ Simplified news link
+    });
+  </script>
 </body>
 </html>
