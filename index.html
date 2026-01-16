@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>NAnime - Anime, Manga & Movies</title>
-  <meta name="description" content="Discover anime, manga, and movies. Save your favorites and share with friends.">
+  <meta name="description" content="Discover and organize your favorite anime, manga, and movies. No Hentai.">
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -42,7 +42,17 @@
       .main-content { max-width: 65%; }
       .sidebar { width: 33%; }
     }
-    .genre-tag { display: inline-block; background: #222; padding: 0.25rem 0.5rem; margin: 0.25rem; border-radius: 999px; font-size: 0.875rem; cursor: pointer; }
+    .genre-tag { 
+      display: inline-block; 
+      background: #222; 
+      padding: 0.25rem 0.75rem; 
+      margin: 0.25rem; 
+      border-radius: 999px; 
+      font-size: 0.875rem; 
+      cursor: pointer; 
+      transition: all 0.2s;
+    }
+    .genre-tag:hover { background: #333; }
     .genre-tag.active { background: #ff0033; color: white; }
   </style>
 </head>
@@ -58,19 +68,8 @@
         <p class="text-lightgray mt-3 text-lg">Anime • Manga • Movies</p>
       </header>
 
-      <!-- 💖 My List -->
-      <section class="mb-6">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="text-yellow-400 text-xl">★</span>
-          <h2 class="text-lg font-bold">My List</h2>
-        </div>
-        <div id="mylist-preview" class="flex flex-wrap gap-2 text-sm">
-          <span class="text-gray-500">Click ★ to save.</span>
-        </div>
-      </section>
-
       <!-- 🔍 Search Bar -->
-      <section class="mb-8">
+      <section class="mb-6">
         <div class="relative max-w-xl mx-auto lg:mx-0">
           <input 
             type="text" 
@@ -82,20 +81,48 @@
         </div>
       </section>
 
-      <!-- 🎭 GENRE FILTER WIDGET -->
-      <section class="mb-8">
-        <h3 class="text-lg font-bold mb-3">Filter by Genre</h3>
-        <div id="genre-filters" class="flex flex-wrap gap-2">
-          <!-- Genres will load here -->
+      <!-- 💖 My List with Filters (now ABOVE tabs) -->
+      <section class="mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-yellow-400 text-xl">★</span>
+          <h2 class="text-lg font-bold">My List</h2>
+        </div>
+        
+        <!-- FILTERS -->
+        <div class="flex flex-wrap gap-3 mb-3 text-sm">
+          <select id="filter-type" class="bg-gray-800 text-white rounded px-2 py-1">
+            <option value="all">All Types</option>
+            <option value="ANIME">Anime</option>
+            <option value="MANGA">Manga</option>
+            <option value="MOVIE">Movies</option>
+          </select>
+          
+          <select id="sort-by" class="bg-gray-800 text-white rounded px-2 py-1">
+            <option value="date">Recently Added</option>
+            <option value="title">Title (A-Z)</option>
+          </select>
+        </div>
+        
+        <!-- LIST -->
+        <div id="mylist-preview" class="flex flex-wrap gap-2">
+          <span class="text-gray-500 text-sm">Click ★ on any title to save it here.</span>
         </div>
       </section>
 
       <!-- Tabs -->
-      <div class="flex flex-wrap justify-center gap-2 mb-8">
-        <button id="tab-anime" class="px-4 py-2 font-medium text-white bg-primary rounded">📺 Anime</button>
-        <button id="tab-manga" class="px-4 py-2 font-medium text-gray-300 bg-gray-800 rounded hover:bg-gray-700">📖 Manga</button>
-        <button id="tab-movies" class="px-4 py-2 font-medium text-gray-300 bg-gray-800 rounded hover:bg-gray-700">🎬 Movies</button>
+      <div class="flex flex-wrap justify-center gap-2 mb-4">
+        <button id="tab-anime" class="px-5 py-2.5 font-medium text-white bg-primary rounded-lg">📺 Anime</button>
+        <button id="tab-manga" class="px-5 py-2.5 font-medium text-gray-300 bg-gray-800 rounded-lg hover:bg-gray-700">📖 Manga</button>
+        <button id="tab-movies" class="px-5 py-2.5 font-medium text-gray-300 bg-gray-800 rounded-lg hover:bg-gray-700">🎬 Movies</button>
       </div>
+
+      <!-- 🎭 GENRE FILTER WIDGET -->
+      <section class="mb-8">
+        <h3 class="text-lg font-bold mb-3">Filter by Genre</h3>
+        <div id="genre-filters" class="flex flex-wrap gap-2">
+          <span class="text-gray-500">Loading genres...</span>
+        </div>
+      </section>
 
       <!-- Main Content -->
       <div class="flex flex-col lg:flex-row gap-8">
@@ -163,7 +190,7 @@
       </div>
 
       <footer class="text-center text-gray-600 text-sm pt-10 mt-8 border-t border-gray-900">
-        <p>© 2026 NAnime • 100% Legal Fan Hub</p>
+        <p>© 2026 NAnime • 100% Legal Fan Hub • No Hentai</p>
       </footer>
     </div>
 
@@ -195,7 +222,6 @@
         if (navigator.share) {
           navigator.share({ title, url }).catch(console.error);
         } else {
-          // Fallback: copy URL
           navigator.clipboard.writeText(url).then(() => {
             alert('Link copied to clipboard!');
           });
@@ -209,29 +235,60 @@
     // --- STATE ---
     let currentView = 'anime';
     let animePage = 1, mangaPage = 1, moviesPage = 1;
-    let bookmarks = JSON.parse(localStorage.getItem('nanimе-bookmarks') || '[]');
-    let allGenres = [];
 
-    // --- BOOKMARKING ---
+    // --- BOOKMARKING WITH TIMESTAMP ---
+    function getBookmarks() {
+      return JSON.parse(localStorage.getItem('nanimе-bookmarks') || '[]');
+    }
+
+    function setBookmarks(list) {
+      localStorage.setItem('nanimе-bookmarks', JSON.stringify(list));
+    }
+
     function toggleBookmark(media) {
+      let bookmarks = getBookmarks();
       const id = media.id;
       const exists = bookmarks.find(b => b.id === id);
       if (exists) {
         bookmarks = bookmarks.filter(b => b.id !== id);
       } else {
-        bookmarks.push(media);
+        bookmarks.push({
+          ...media,
+          addedAt: Date.now()
+        });
       }
-      localStorage.setItem('nanimе-bookmarks', JSON.stringify(bookmarks));
+      setBookmarks(bookmarks);
       renderMyListPreview();
       updateBookmarkButtons();
     }
 
+    // --- RENDER MY LIST WITH FILTERS ---
     function renderMyListPreview() {
       const container = document.getElementById('mylist-preview');
+      let bookmarks = getBookmarks();
+      
       if (bookmarks.length === 0) {
-        container.innerHTML = '<span class="text-gray-500">Click ★ to save.</span>';
+        container.innerHTML = '<span class="text-gray-500 text-sm">Click ★ on any title to save it here.</span>';
         return;
       }
+
+      const typeFilter = document.getElementById('filter-type').value;
+      const sortBy = document.getElementById('sort-by').value;
+
+      // Filter by type
+      if (typeFilter !== 'all') {
+        const typeMap = { ANIME: 'ANIME', MANGA: 'MANGA', MOVIE: 'ANIME' };
+        const targetType = typeMap[typeFilter];
+        bookmarks = bookmarks.filter(b => b.type === targetType);
+      }
+
+      // Sort
+      if (sortBy === 'title') {
+        bookmarks.sort((a, b) => a.title.localeCompare(b.title));
+      } else {
+        bookmarks.sort((a, b) => b.addedAt - a.addedAt);
+      }
+
       container.innerHTML = bookmarks.map(item => `
         <span class="bg-gray-800 px-2 py-1 rounded text-xs flex items-center gap-1">
           <span>${item.title}</span>
@@ -241,13 +298,15 @@
     }
 
     function removeFromList(id) {
+      let bookmarks = getBookmarks();
       bookmarks = bookmarks.filter(b => b.id !== id);
-      localStorage.setItem('nanimе-bookmarks', JSON.stringify(bookmarks));
+      setBookmarks(bookmarks);
       renderMyListPreview();
       updateBookmarkButtons();
     }
 
     function updateBookmarkButtons() {
+      const bookmarks = getBookmarks();
       document.querySelectorAll('.bookmark-btn').forEach(btn => {
         const id = btn.getAttribute('data-id');
         const isActive = bookmarks.some(b => b.id == id);
@@ -256,30 +315,30 @@
       });
     }
 
+    // --- ATTACH FILTER LISTENERS ---
+    document.getElementById('filter-type').addEventListener('change', renderMyListPreview);
+    document.getElementById('sort-by').addEventListener('change', renderMyListPreview);
+
     // --- TABS ---
     function setTab(tab) {
       currentView = tab;
       showMainView();
       
-      // Hide all sections
       document.getElementById('anime-section').classList.add('hidden');
       document.getElementById('manga-section').classList.add('hidden');
       document.getElementById('movies-section').classList.add('hidden');
       
-      // Show active
       document.getElementById(tab + '-section').classList.remove('hidden');
       
-      // Update buttons
       ['anime', 'manga', 'movies'].forEach(t => {
         const btn = document.getElementById('tab-' + t);
         if (t === tab) {
-          btn.className = 'px-4 py-2 font-medium text-white bg-primary rounded';
+          btn.className = 'px-5 py-2.5 font-medium text-white bg-primary rounded-lg';
         } else {
-          btn.className = 'px-4 py-2 font-medium text-gray-300 bg-gray-800 rounded hover:bg-gray-700';
+          btn.className = 'px-5 py-2.5 font-medium text-gray-300 bg-gray-800 rounded-lg hover:bg-gray-700';
         }
       });
       
-      // Load if not loaded
       if (tab === 'manga' && document.getElementById('manga-list').innerHTML.includes('Loading')) {
         loadManga();
       } else if (tab === 'movies' && document.getElementById('movies-list-main').innerHTML.includes('Loading')) {
@@ -304,7 +363,7 @@
 
     document.getElementById('back-button').addEventListener('click', showMainView);
 
-    // --- LOAD GENRES ---
+    // --- LOAD GENRES (NO HENTAI) ---
     async function loadGenres() {
       const query = `query { GenreCollection }`;
       try {
@@ -314,23 +373,30 @@
           body: JSON.stringify({ query })
         });
         const data = await res.json();
-        allGenres = data.data.GenreCollection || [];
-        renderGenreFilters();
-      } catch (e) {}
+        const safeGenres = (data.data.GenreCollection || [])
+          .filter(genre => genre && genre.trim().toLowerCase() !== 'hentai')
+          .sort();
+        renderGenreFilters(safeGenres);
+      } catch (e) {
+        document.getElementById('genre-filters').innerHTML = '<span class="text-red-400">Failed to load genres.</span>';
+      }
     }
 
-    function renderGenreFilters() {
+    function renderGenreFilters(genres) {
       const container = document.getElementById('genre-filters');
-      container.innerHTML = allGenres.slice(0, 20).map(genre => `
+      if (genres.length === 0) {
+        container.innerHTML = '<span class="text-gray-500">No genres available.</span>';
+        return;
+      }
+      container.innerHTML = genres.map(genre => `
         <span class="genre-tag" data-genre="${genre}">${genre}</span>
       `).join('');
       
-      // Add click listeners
       document.querySelectorAll('.genre-tag').forEach(tag => {
         tag.addEventListener('click', () => {
           document.querySelectorAll('.genre-tag').forEach(t => t.classList.remove('active'));
           tag.classList.add('active');
-          alert(`Filtering by: ${tag.dataset.genre}\n(Full filtering requires backend.)`);
+          alert(`Filtering by genre: ${tag.dataset.genre}\n(Full filtering requires backend.)`);
         });
       });
     }
@@ -512,7 +578,7 @@
       } catch (e) {}
     }
 
-    // --- SHOW DETAIL PAGE (NO COMMENTS) ---
+    // --- SHOW DETAIL PAGE ---
     async function showMediaDetail(type, id) {
       const query = `
         query ($id: Int, $type: MediaType) {
@@ -565,7 +631,8 @@
         const media = result.data.Media;
         if (!media) throw new Error('Media not found');
 
-        // Build related section
+        const cleanGenres = (media.genres || []).filter(g => g.toLowerCase() !== 'hentai');
+
         let relatedHtml = '';
         if (media.relations && media.relations.edges.length > 0) {
           const filteredEdges = media.relations.edges.filter(edge => edge.node && edge.node.title && edge.node.coverImage).slice(0, 6);
@@ -604,7 +671,7 @@
               <div class="mt-4 text-gray-300">${desc}</div>
               
               <div class="mt-4 text-sm grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div><span class="text-gray-400">Genres:</span> ${media.genres.join(', ')}</div>
+                <div><span class="text-gray-400">Genres:</span> ${cleanGenres.join(', ') || 'None'}</div>
                 <div><span class="text-gray-400">Score:</span> ${media.averageScore ? media.averageScore + '/100' : 'N/A'}</div>
                 ${type === 'ANIME' ? 
                   `<div><span class="text-gray-400">Episodes:</span> ${media.episodes || 'Unknown'}</div>` : 
@@ -631,8 +698,7 @@
           </div>
         `;
 
-        // Update bookmark icon
-        const isBookmarked = bookmarks.some(b => b.id == media.id);
+        const isBookmarked = getBookmarks().some(b => b.id == media.id);
         document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
 
         showDetailView();
@@ -645,7 +711,7 @@
 
     function toggleBookmarkFromDetail(media) {
       toggleBookmark(media);
-      const isBookmarked = bookmarks.some(b => b.id == media.id);
+      const isBookmarked = getBookmarks().some(b => b.id == media.id);
       document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
     }
 
