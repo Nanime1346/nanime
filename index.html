@@ -486,20 +486,29 @@
     }
 
     // --- RENDER FUNCTIONS ---
+    function escapeHtml(text) {
+      return text.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
     function renderAnime(items, append = false) {
       const container = document.getElementById('anime-list');
       if (!append) container.innerHTML = '';
       container.innerHTML += items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
+        const title = escapeHtml(item.title.romaji || 'Untitled');
         return `
           <div class="bg-black/40 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-900 dark:border-gray-700 hover:border-primary transition flex items-start gap-4 media-item cursor-pointer"
                onclick="showMediaDetail('ANIME', ${item.id})">
-            <img src="${img}" alt="${item.title.romaji}" class="w-16 h-24 object-cover rounded-lg">
+            <img src="${img}" alt="${title}" class="w-16 h-24 object-cover rounded-lg">
             <div>
-              <div class="font-bold text-lg">${item.title.romaji}</div>
+              <div class="font-bold text-lg">${title}</div>
               <div class="text-gray-300 dark:text-gray-400 text-sm">${item.episodes ? item.episodes + ' eps' : 'Unknown'}</div>
             </div>
-            <button class="bookmark-btn" data-id="${item.id}" onclick="toggleBookmarkLight(event, ${JSON.stringify({...item, type: 'ANIME'})})">☆</button>
+            <button class="bookmark-btn" 
+                    data-id="${item.id}"
+                    data-title="${title}"
+                    data-type="ANIME"
+                    data-cover="${img}">☆</button>
           </div>
         `;
       }).join('');
@@ -511,15 +520,20 @@
       if (!append) container.innerHTML = '';
       container.innerHTML += items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
+        const title = escapeHtml(item.title.romaji || 'Untitled');
         return `
           <div class="bg-black/40 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-900 dark:border-gray-700 hover:border-primary transition flex items-start gap-4 media-item cursor-pointer"
                onclick="showMediaDetail('MANGA', ${item.id})">
-            <img src="${img}" alt="${item.title.romaji}" class="w-16 h-24 object-cover rounded-lg">
+            <img src="${img}" alt="${title}" class="w-16 h-24 object-cover rounded-lg">
             <div>
-              <div class="font-bold text-lg">${item.title.romaji}</div>
+              <div class="font-bold text-lg">${title}</div>
               <div class="text-gray-300 dark:text-gray-400 text-sm">${item.chapters ? item.chapters + ' chs' : 'Unknown'}</div>
             </div>
-            <button class="bookmark-btn" data-id="${item.id}" onclick="toggleBookmarkLight(event, ${JSON.stringify({...item, type: 'MANGA'})})">☆</button>
+            <button class="bookmark-btn" 
+                    data-id="${item.id}"
+                    data-title="${title}"
+                    data-type="MANGA"
+                    data-cover="${img}">☆</button>
           </div>
         `;
       }).join('');
@@ -531,30 +545,40 @@
       if (!append) container.innerHTML = '';
       container.innerHTML += items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
+        const title = escapeHtml(item.title.romaji || 'Untitled');
         return `
           <div class="bg-black/40 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-900 dark:border-gray-700 hover:border-primary transition flex items-start gap-4 media-item cursor-pointer"
                onclick="showMediaDetail('ANIME', ${item.id})">
-            <img src="${img}" alt="${item.title.romaji}" class="w-16 h-24 object-cover rounded-lg">
+            <img src="${img}" alt="${title}" class="w-16 h-24 object-cover rounded-lg">
             <div>
-              <div class="font-bold text-lg">${item.title.romaji}</div>
+              <div class="font-bold text-lg">${title}</div>
               <div class="text-gray-300 dark:text-gray-400 text-sm">Movie</div>
             </div>
-            <button class="bookmark-btn" data-id="${item.id}" onclick="toggleBookmarkLight(event, ${JSON.stringify({...item, type: 'ANIME'})})">☆</button>
+            <button class="bookmark-btn" 
+                    data-id="${item.id}"
+                    data-title="${title}"
+                    data-type="ANIME"
+                    data-cover="${img}">☆</button>
           </div>
         `;
       }).join('');
       updateBookmarkButtons();
     }
 
-    function toggleBookmarkLight(event, media) {
-      event.stopPropagation();
-      toggleBookmark({
-        id: media.id,
-        title: media.title.romaji,
-        coverImage: media.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?',
-        type: media.type
-      });
-    }
+    // ✅ DELEGATED EVENT LISTENER FOR ALL BOOKMARK BUTTONS
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('bookmark-btn')) {
+        e.stopPropagation(); // Prevent opening detail view
+        const btn = e.target;
+        const media = {
+          id: parseInt(btn.getAttribute('data-id')),
+          title: btn.getAttribute('data-title'),
+          type: btn.getAttribute('data-type'),
+          coverImage: btn.getAttribute('data-cover')
+        };
+        toggleBookmark(media);
+      }
+    });
 
     // --- TRENDING ---
     async function loadTrending() {
@@ -580,8 +604,8 @@
         const items = data.data.Page.media || [];
         document.getElementById('trending-list').innerHTML = items.map(item => `
           <div class="cursor-pointer hover:text-primary" onclick="showMediaDetail('${item.type}', ${item.id})">
-            <img src="${item.coverImage.medium}" alt="${item.title.romaji}" class="w-12 h-16 object-cover rounded float-left mr-3">
-            <div class="text-sm leading-tight">${item.title.romaji}</div>
+            <img src="${item.coverImage.medium}" alt="${escapeHtml(item.title.romaji)}" class="w-12 h-16 object-cover rounded float-left mr-3">
+            <div class="text-sm leading-tight">${escapeHtml(item.title.romaji)}</div>
             <div style="clear:both"></div>
           </div>
         `).join('');
@@ -644,7 +668,7 @@
                     <div class="cursor-pointer" onclick="showMediaDetail('${edge.node.type}', ${edge.node.id})">
                       <img src="${edge.node.coverImage.medium}" class="w-full h-24 object-cover rounded">
                       <p class="text-xs mt-1">${edge.relationType.replace(/_/g, ' ')}</p>
-                      <p class="text-sm">${edge.node.title.romaji}</p>
+                      <p class="text-sm">${escapeHtml(edge.node.title.romaji)}</p>
                     </div>
                   `).join('')}
                 </div>
@@ -656,15 +680,17 @@
         const desc = media.description ? media.description.replace(/<[^>]*>/g, '').substring(0, 800) + '...' : 'No description available.';
         const statusMap = { FINISHED: 'Finished', RELEASING: 'Ongoing', NOT_YET_RELEASED: 'Upcoming', CANCELLED: 'Cancelled' };
         const status = statusMap[media.status] || media.status;
-        const title = media.title.english || media.title.romaji;
+        const title = media.title.english || media.title.romaji || 'Untitled';
+
+        const escapedTitle = escapeHtml(title);
 
         document.getElementById('detail-content').innerHTML = `
           <div class="flex flex-col md:flex-row gap-6">
             <div>
-              <img src="${media.coverImage.large}" alt="${title}" class="w-full md:w-64 h-80 object-cover rounded-lg">
+              <img src="${media.coverImage.large}" alt="${escapedTitle}" class="w-full md:w-64 h-80 object-cover rounded-lg">
             </div>
             <div class="flex-1">
-              <h1 class="text-3xl font-bold">${title}</h1>
+              <h1 class="text-3xl font-bold">${escapedTitle}</h1>
               <p class="text-primary mt-1">${type === 'ANIME' ? 'Anime' : 'Manga'} • ${status}</p>
               
               <div class="mt-4 text-gray-300 dark:text-gray-400">${desc}</div>
@@ -679,12 +705,12 @@
               </div>
 
               <div class="mt-6 flex flex-wrap gap-3">
-                <button onclick="toggleBookmarkFromDetail(${JSON.stringify({
-                  id: media.id,
-                  title: title,
-                  coverImage: media.coverImage.large,
-                  type: type
-                })})" class="flex items-center gap-1 bg-gray-800 dark:bg-gray-700 px-3 py-1 rounded">
+                <button id="detail-bookmark-btn"
+                        class="flex items-center gap-1 bg-gray-800 dark:bg-gray-700 px-3 py-1 rounded"
+                        data-id="${media.id}"
+                        data-title="${escapedTitle}"
+                        data-type="${type}"
+                        data-cover="${media.coverImage.large}">
                   <span id="detail-bookmark-icon">☆</span> Bookmark
                 </button>
                 <a href="${media.siteUrl}" target="_blank" class="bg-primary text-white px-4 py-2 rounded hover:bg-red-700">
@@ -707,11 +733,22 @@
       }
     }
 
-    function toggleBookmarkFromDetail(media) {
-      toggleBookmark(media);
-      const isBookmarked = getBookmarks().some(b => b.id == media.id);
-      document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
-    }
+    // Handle bookmark from detail view using same logic
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('#detail-bookmark-btn')) {
+        e.stopPropagation();
+        const btn = document.getElementById('detail-bookmark-btn');
+        const media = {
+          id: parseInt(btn.getAttribute('data-id')),
+          title: btn.getAttribute('data-title'),
+          type: btn.getAttribute('data-type'),
+          coverImage: btn.getAttribute('data-cover')
+        };
+        toggleBookmark(media);
+        const isBookmarked = getBookmarks().some(b => b.id == media.id);
+        document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
+      }
+    });
 
     // --- SEARCH ---
     document.getElementById('search-input').addEventListener('input', async (e) => {
@@ -781,7 +818,7 @@
       }
       document.getElementById('rss-news').innerHTML = items.map(item => `
         <div class="bg-black/40 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-800 dark:border-gray-700">
-          <h3 class="font-bold text-gray-900 dark:text-white">${item.title}</h3>
+          <h3 class="font-bold text-gray-900 dark:text-white">${escapeHtml(item.title)}</h3>
         </div>
       `).join('');
     }
@@ -794,7 +831,6 @@
       renderMyListPreview();
       loadGenres();
       
-      // Load all three sections on startup
       loadAnime();
       loadManga();
       loadMoviesMain();
