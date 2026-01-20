@@ -7,6 +7,10 @@
   <meta name="google-site-verification" content="W1rRHRsNBdzYOTuvVK-tuaDvHHVXOCBsNe-5IOoQukw"/>
   <meta name="description" content="Discover and filter anime, manga, and movies by genre. No Hentai. — animeN">
   
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ff0033">
+  
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -44,9 +48,29 @@
       .main-content { max-width: 65%; }
       .sidebar { width: 33%; }
     }
+    /* Offline banner */
+    #offline-banner.hidden { display: none; }
+    #offline-banner { 
+      display: block;
+      background-color: #dc2626;
+      color: white;
+      text-align: center;
+      padding: 0.25rem;
+      font-size: 0.875rem;
+      z-index: 50;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+    }
   </style>
 </head>
 <body class="min-h-screen font-sans bg-white text-gray-900 dark:bg-dark dark:text-offwhite">
+  <!-- ✅ OFFLINE BANNER -->
+  <div id="offline-banner" class="hidden">
+    ⚠️ You are offline. Some features may be limited.
+  </div>
+
   <div id="app" class="container mx-auto px-4 py-8 max-w-7xl">
     <!-- Main App Content -->
     <div id="main-view">
@@ -175,8 +199,9 @@
         </div>
       </div>
 
+      <!-- ✅ CLEAN FOOTER -->
       <footer class="text-center text-gray-600 dark:text-gray-400 text-sm pt-10 mt-8 border-t border-gray-900 dark:border-gray-700">
-        <p>© 2026 animeN • 100% Legal Fan Hub • No Hentai</p>
+        <p>© 2026 animeN</p>
       </footer>
     </div>
 
@@ -215,6 +240,19 @@
 
   <!-- Main Scripts -->
   <script>
+    // --- OFFLINE STATUS ---
+    function updateOfflineStatus() {
+      const banner = document.getElementById('offline-banner');
+      if (!banner) return;
+      if (!navigator.onLine) {
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+    window.addEventListener('online', updateOfflineStatus);
+    window.addEventListener('offline', updateOfflineStatus);
+
     // --- DARK/LIGHT MODE ---
     function initTheme() {
       const saved = localStorage.getItem('animeN-theme');
@@ -382,18 +420,160 @@
     document.getElementById('tab-manga').addEventListener('click', () => setTab('manga'));
     document.getElementById('tab-movies').addEventListener('click', () => setTab('movies'));
 
-    // --- VIEW SWITCHING ---
+    // --- VIEW SWITCHING WITH HISTORY ---
     function showMainView() {
       document.getElementById('main-view').classList.remove('hidden');
       document.getElementById('detail-view').classList.add('hidden');
+      history.pushState(null, '', '#/');
+      document.title = 'animeN - Anime, Manga & Movies';
     }
 
-    function showDetailView() {
-      document.getElementById('main-view').classList.add('hidden');
-      document.getElementById('detail-view').classList.remove('hidden');
+    function showDetailView(type, id) {
+      loadAndShowDetail(type, id);
+      history.pushState({ type, id }, '', `#/${type.toLowerCase()}/${id}`);
+      document.title = 'Loading... – animeN';
     }
 
-    document.getElementById('back-button').addEventListener('click', showMainView);
+    // Load media detail and display
+    async function loadAndShowDetail(type, id) {
+      const query = `
+        query ($id: Int, $type: MediaType) {
+          Media(id: $id, type: $type) {
+            id
+            title { romaji english }
+            coverImage { large }
+            description(asHtml: false)
+            status
+            episodes
+            chapters
+            volumes
+            genres
+            averageScore
+            siteUrl
+            relations {
+              edges {
+                relationType(version: 2)
+                node {
+                  id
+                  title { romaji }
+                  type
+                  coverImage { medium }
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      try {
+        const response = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, variables: { id: parseInt(id), type } })
+        });
+
+        const result = await response.json();
+        const media = result.data.Media;
+        if (!media) throw new Error('Media not found');
+
+        const cleanGenres = (media.genres || []).filter(g => g.toLowerCase() !== 'hentai');
+
+        let relatedHtml = '';
+        if (media.relations && media.relations.edges.length > 0) {
+          const filteredEdges = media.relations.edges.filter(edge => edge.node && edge.node.title && edge.node.coverImage).slice(0, 6);
+          if (filteredEdges.length > 0) {
+            relatedHtml = `
+              <div class="mt-6">
+                <h3 class="text-xl font-bold mb-3">Related</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  ${filteredEdges.map(edge => `
+                    <div class="cursor-pointer" onclick="showDetailView('${edge.node.type}', ${edge.node.id})">
+                      <img src="${edge.node.coverImage.medium}" class="w-full h-24 object-cover rounded">
+                      <p class="text-xs mt-1">${edge.relationType.replace(/_/g, ' ')}</p>
+                      <p class="text-sm">${escapeHtml(edge.node.title.romaji)}</p>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `;
+          }
+        }
+
+        const desc = media.description ? media.description.replace(/<[^>]*>/g, '').substring(0, 800) + '...' : 'No description available.';
+        const statusMap = { FINISHED: 'Finished', RELEASING: 'Ongoing', NOT_YET_RELEASED: 'Upcoming', CANCELLED: 'Cancelled' };
+        const status = statusMap[media.status] || media.status;
+        const title = media.title.english || media.title.romaji || 'Untitled';
+        const escapedTitle = escapeHtml(title);
+
+        document.getElementById('detail-content').innerHTML = `
+          <div class="flex flex-col md:flex-row gap-6">
+            <div>
+              <img src="${media.coverImage.large}" alt="${escapedTitle}" class="w-full md:w-64 h-80 object-cover rounded-lg">
+            </div>
+            <div class="flex-1">
+              <h1 class="text-3xl font-bold">${escapedTitle}</h1>
+              <p class="text-primary mt-1">${type === 'ANIME' ? 'Anime' : 'Manga'} • ${status}</p>
+              
+              <div class="mt-4 text-gray-300 dark:text-gray-400">${desc}</div>
+              
+              <div class="mt-4 text-sm grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div><span class="text-gray-400">Genres:</span> ${cleanGenres.join(', ') || 'None'}</div>
+                <div><span class="text-gray-400">Score:</span> ${media.averageScore ? media.averageScore + '/100' : 'N/A'}</div>
+                ${type === 'ANIME' ? 
+                  `<div><span class="text-gray-400">Episodes:</span> ${Number.isInteger(media.episodes) ? media.episodes : 'Ongoing'}</div>` : 
+                  `<div><span class="text-gray-400">Chapters:</span> ${Number.isInteger(media.chapters) ? media.chapters : 'Ongoing'} (Vol. ${media.volumes || '?'})</div>`
+                }
+              </div>
+
+              <div class="mt-6 flex flex-wrap gap-3">
+                <button id="detail-bookmark-btn"
+                        class="flex items-center gap-1 bg-gray-800 dark:bg-gray-700 px-3 py-1 rounded"
+                        data-id="${media.id}"
+                        data-title="${escapedTitle}"
+                        data-type="${type}"
+                        data-cover="${media.coverImage.large}">
+                  <span id="detail-bookmark-icon">☆</span> Bookmark
+                </button>
+                <a href="${media.siteUrl}" target="_blank" class="bg-primary text-white px-4 py-2 rounded hover:bg-red-700">
+                  View on AniList →
+                </a>
+              </div>
+
+              ${relatedHtml}
+            </div>
+          </div>
+        `;
+
+        const isBookmarked = getBookmarks().some(b => b.id == media.id);
+        document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
+
+        document.getElementById('main-view').classList.add('hidden');
+        document.getElementById('detail-view').classList.remove('hidden');
+        document.title = `${escapedTitle} – animeN`;
+      } catch (error) {
+        document.getElementById('detail-content').innerHTML = '<p class="text-red-400">Failed to load details.</p>';
+        document.getElementById('main-view').classList.add('hidden');
+        document.getElementById('detail-view').classList.remove('hidden');
+        document.title = 'Error – animeN';
+      }
+    }
+
+    // Handle back/forward buttons
+    window.addEventListener('popstate', (event) => {
+      if (event.state && event.state.type && event.state.id) {
+        loadAndShowDetail(event.state.type, event.state.id);
+      } else {
+        showMainView();
+      }
+    });
+
+    // ESCAPE HTML
+    function escapeHtml(text) {
+      return (text || 'Untitled').toString()
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
 
     // --- LOAD MEDIA ---
     async function loadAnime(append = false) {
@@ -486,23 +666,20 @@
     }
 
     // --- RENDER FUNCTIONS ---
-    function escapeHtml(text) {
-      return text.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
     function renderAnime(items, append = false) {
       const container = document.getElementById('anime-list');
       if (!append) container.innerHTML = '';
       container.innerHTML += items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
-        const title = escapeHtml(item.title.romaji || 'Untitled');
+        const title = escapeHtml(item.title.romaji);
+        const epText = Number.isInteger(item.episodes) ? item.episodes + ' eps' : 'Ongoing';
         return `
           <div class="bg-black/40 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-900 dark:border-gray-700 hover:border-primary transition flex items-start gap-4 media-item cursor-pointer"
-               onclick="showMediaDetail('ANIME', ${item.id})">
+               onclick="showDetailView('ANIME', ${item.id})">
             <img src="${img}" alt="${title}" class="w-16 h-24 object-cover rounded-lg">
             <div>
               <div class="font-bold text-lg">${title}</div>
-              <div class="text-gray-300 dark:text-gray-400 text-sm">${item.episodes ? item.episodes + ' eps' : 'Unknown'}</div>
+              <div class="text-gray-300 dark:text-gray-400 text-sm">${epText}</div>
             </div>
             <button class="bookmark-btn" 
                     data-id="${item.id}"
@@ -520,14 +697,15 @@
       if (!append) container.innerHTML = '';
       container.innerHTML += items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
-        const title = escapeHtml(item.title.romaji || 'Untitled');
+        const title = escapeHtml(item.title.romaji);
+        const chText = Number.isInteger(item.chapters) ? item.chapters + ' chs' : 'Ongoing';
         return `
           <div class="bg-black/40 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-900 dark:border-gray-700 hover:border-primary transition flex items-start gap-4 media-item cursor-pointer"
-               onclick="showMediaDetail('MANGA', ${item.id})">
+               onclick="showDetailView('MANGA', ${item.id})">
             <img src="${img}" alt="${title}" class="w-16 h-24 object-cover rounded-lg">
             <div>
               <div class="font-bold text-lg">${title}</div>
-              <div class="text-gray-300 dark:text-gray-400 text-sm">${item.chapters ? item.chapters + ' chs' : 'Unknown'}</div>
+              <div class="text-gray-300 dark:text-gray-400 text-sm">${chText}</div>
             </div>
             <button class="bookmark-btn" 
                     data-id="${item.id}"
@@ -545,10 +723,10 @@
       if (!append) container.innerHTML = '';
       container.innerHTML += items.map(item => {
         const img = item.coverImage?.large || 'https://via.placeholder.com/80x112/333/666?text=?';
-        const title = escapeHtml(item.title.romaji || 'Untitled');
+        const title = escapeHtml(item.title.romaji);
         return `
           <div class="bg-black/40 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-900 dark:border-gray-700 hover:border-primary transition flex items-start gap-4 media-item cursor-pointer"
-               onclick="showMediaDetail('ANIME', ${item.id})">
+               onclick="showDetailView('ANIME', ${item.id})">
             <img src="${img}" alt="${title}" class="w-16 h-24 object-cover rounded-lg">
             <div>
               <div class="font-bold text-lg">${title}</div>
@@ -568,7 +746,7 @@
     // ✅ DELEGATED EVENT LISTENER FOR ALL BOOKMARK BUTTONS
     document.addEventListener('click', (e) => {
       if (e.target.classList.contains('bookmark-btn')) {
-        e.stopPropagation(); // Prevent opening detail view
+        e.stopPropagation();
         const btn = e.target;
         const media = {
           id: parseInt(btn.getAttribute('data-id')),
@@ -577,6 +755,23 @@
           coverImage: btn.getAttribute('data-cover')
         };
         toggleBookmark(media);
+      }
+    });
+
+    // Handle bookmark from detail view
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('#detail-bookmark-btn')) {
+        e.stopPropagation();
+        const btn = document.getElementById('detail-bookmark-btn');
+        const media = {
+          id: parseInt(btn.getAttribute('data-id')),
+          title: btn.getAttribute('data-title'),
+          type: btn.getAttribute('data-type'),
+          coverImage: btn.getAttribute('data-cover')
+        };
+        toggleBookmark(media);
+        const isBookmarked = getBookmarks().some(b => b.id == media.id);
+        document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
       }
     });
 
@@ -603,7 +798,7 @@
         const data = await res.json();
         const items = data.data.Page.media || [];
         document.getElementById('trending-list').innerHTML = items.map(item => `
-          <div class="cursor-pointer hover:text-primary" onclick="showMediaDetail('${item.type}', ${item.id})">
+          <div class="cursor-pointer hover:text-primary" onclick="showDetailView('${item.type}', ${item.id})">
             <img src="${item.coverImage.medium}" alt="${escapeHtml(item.title.romaji)}" class="w-12 h-16 object-cover rounded float-left mr-3">
             <div class="text-sm leading-tight">${escapeHtml(item.title.romaji)}</div>
             <div style="clear:both"></div>
@@ -611,144 +806,6 @@
         `).join('');
       } catch (e) {}
     }
-
-    // --- DETAIL PAGE ---
-    async function showMediaDetail(type, id) {
-      const query = `
-        query ($id: Int, $type: MediaType) {
-          Media(id: $id, type: $type) {
-            id
-            title { romaji english }
-            coverImage { large }
-            description(asHtml: false)
-            status
-            episodes
-            chapters
-            volumes
-            genres
-            averageScore
-            siteUrl
-            relations {
-              edges {
-                relationType(version: 2)
-                node {
-                  id
-                  title { romaji }
-                  type
-                  coverImage { medium }
-                }
-              }
-            }
-          }
-        }
-      `;
-
-      try {
-        const response = await fetch('https://graphql.anilist.co', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, variables: { id: parseInt(id), type } })
-        });
-
-        const result = await response.json();
-        const media = result.data.Media;
-        if (!media) throw new Error('Media not found');
-
-        const cleanGenres = (media.genres || []).filter(g => g.toLowerCase() !== 'hentai');
-
-        let relatedHtml = '';
-        if (media.relations && media.relations.edges.length > 0) {
-          const filteredEdges = media.relations.edges.filter(edge => edge.node && edge.node.title && edge.node.coverImage).slice(0, 6);
-          if (filteredEdges.length > 0) {
-            relatedHtml = `
-              <div class="mt-6">
-                <h3 class="text-xl font-bold mb-3">Related</h3>
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  ${filteredEdges.map(edge => `
-                    <div class="cursor-pointer" onclick="showMediaDetail('${edge.node.type}', ${edge.node.id})">
-                      <img src="${edge.node.coverImage.medium}" class="w-full h-24 object-cover rounded">
-                      <p class="text-xs mt-1">${edge.relationType.replace(/_/g, ' ')}</p>
-                      <p class="text-sm">${escapeHtml(edge.node.title.romaji)}</p>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-            `;
-          }
-        }
-
-        const desc = media.description ? media.description.replace(/<[^>]*>/g, '').substring(0, 800) + '...' : 'No description available.';
-        const statusMap = { FINISHED: 'Finished', RELEASING: 'Ongoing', NOT_YET_RELEASED: 'Upcoming', CANCELLED: 'Cancelled' };
-        const status = statusMap[media.status] || media.status;
-        const title = media.title.english || media.title.romaji || 'Untitled';
-
-        const escapedTitle = escapeHtml(title);
-
-        document.getElementById('detail-content').innerHTML = `
-          <div class="flex flex-col md:flex-row gap-6">
-            <div>
-              <img src="${media.coverImage.large}" alt="${escapedTitle}" class="w-full md:w-64 h-80 object-cover rounded-lg">
-            </div>
-            <div class="flex-1">
-              <h1 class="text-3xl font-bold">${escapedTitle}</h1>
-              <p class="text-primary mt-1">${type === 'ANIME' ? 'Anime' : 'Manga'} • ${status}</p>
-              
-              <div class="mt-4 text-gray-300 dark:text-gray-400">${desc}</div>
-              
-              <div class="mt-4 text-sm grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div><span class="text-gray-400">Genres:</span> ${cleanGenres.join(', ') || 'None'}</div>
-                <div><span class="text-gray-400">Score:</span> ${media.averageScore ? media.averageScore + '/100' : 'N/A'}</div>
-                ${type === 'ANIME' ? 
-                  `<div><span class="text-gray-400">Episodes:</span> ${media.episodes || 'Unknown'}</div>` : 
-                  `<div><span class="text-gray-400">Chapters:</span> ${media.chapters || 'Unknown'} (Vol. ${media.volumes || '?'})</div>`
-                }
-              </div>
-
-              <div class="mt-6 flex flex-wrap gap-3">
-                <button id="detail-bookmark-btn"
-                        class="flex items-center gap-1 bg-gray-800 dark:bg-gray-700 px-3 py-1 rounded"
-                        data-id="${media.id}"
-                        data-title="${escapedTitle}"
-                        data-type="${type}"
-                        data-cover="${media.coverImage.large}">
-                  <span id="detail-bookmark-icon">☆</span> Bookmark
-                </button>
-                <a href="${media.siteUrl}" target="_blank" class="bg-primary text-white px-4 py-2 rounded hover:bg-red-700">
-                  View on AniList →
-                </a>
-              </div>
-
-              ${relatedHtml}
-            </div>
-          </div>
-        `;
-
-        const isBookmarked = getBookmarks().some(b => b.id == media.id);
-        document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
-
-        showDetailView();
-      } catch (error) {
-        document.getElementById('detail-content').innerHTML = '<p class="text-red-400">Failed to load details.</p>';
-        showDetailView();
-      }
-    }
-
-    // Handle bookmark from detail view using same logic
-    document.addEventListener('click', (e) => {
-      if (e.target.closest('#detail-bookmark-btn')) {
-        e.stopPropagation();
-        const btn = document.getElementById('detail-bookmark-btn');
-        const media = {
-          id: parseInt(btn.getAttribute('data-id')),
-          title: btn.getAttribute('data-title'),
-          type: btn.getAttribute('data-type'),
-          coverImage: btn.getAttribute('data-cover')
-        };
-        toggleBookmark(media);
-        const isBookmarked = getBookmarks().some(b => b.id == media.id);
-        document.getElementById('detail-bookmark-icon').textContent = isBookmarked ? '★' : '☆';
-      }
-    });
 
     // --- SEARCH ---
     document.getElementById('search-input').addEventListener('input', async (e) => {
@@ -837,7 +894,36 @@
       
       loadTrending();
       loadRssNews();
+
+      // Handle initial URL
+      const hash = window.location.hash;
+      const match = hash.match(/^#\/(anime|manga)\/(\d+)$/i);
+      if (match) {
+        const type = match[1].toUpperCase(); // 'ANIME' or 'MANGA'
+        const id = match[2];
+        history.replaceState({ type, id }, '', hash);
+        loadAndShowDetail(type, id);
+      } else {
+        history.replaceState(null, '', '#/');
+      }
+
+      // Update offline status
+      updateOfflineStatus();
     });
+
+    // Back button inside detail view
+    document.getElementById('back-button').addEventListener('click', showMainView);
+  </script>
+
+  <!-- ✅ REGISTER SERVICE WORKER -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW registered:', reg.scope))
+          .catch(err => console.warn('SW failed:', err));
+      });
+    }
   </script>
 </body>
 </html>
